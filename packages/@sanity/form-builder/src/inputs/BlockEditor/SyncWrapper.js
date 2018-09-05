@@ -119,7 +119,6 @@ export default withPatchSubscriber(
       const {value, onChange, type} = this.props
       this._beforeChangeEditorValue = this.state.editorValue
       this.setState({editorValue: change.value})
-
       const patches = changeToPatches(this._beforeChangeEditorValue, change, value, type)
       this._select = createSelectionOperation(change)
 
@@ -232,6 +231,7 @@ export default withPatchSubscriber(
       const isDeprecated = deprecatedSchema || deprecatedBlockValue
       return (
         <div className={styles.root}>
+          {JSON.stringify(this.props.focusPath, null, 2)}
           {!isDeprecated &&
             !invalidBlockValue && (
               <Input

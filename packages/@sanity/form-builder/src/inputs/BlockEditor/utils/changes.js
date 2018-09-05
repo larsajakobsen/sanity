@@ -10,30 +10,30 @@ export function setBlockStyle(change, styleName) {
   if (
     startBlock === endBlock &&
     selection.isExpanded &&
-    !(selection.hasStartAtStartOf(startBlock) && selection.hasEndAtEndOf(startBlock))
+    !(selection.start.isAtStartOfNode(startBlock) && selection.end.isAtEndOfNode(startBlock))
   ) {
-    const hasTextBefore = !selection.hasStartAtStartOf(startBlock)
-    const hasTextAfter = !selection.hasEndAtEndOf(startBlock)
+    const hasTextBefore = !selection.start.isAtStartOfNode(startBlock)
+    const hasTextAfter = !selection.end.isAtEndOfNode(startBlock)
     if (hasTextAfter) {
       const extendForward = selection.isForward
-        ? selection.focusOffset - selection.anchorOffset
-        : selection.anchorOffset - selection.focusOffset
+        ? selection.focus.offset - selection.anchor.offset
+        : selection.anchor.offset - selection.focus.offset
       change
-        .collapseToStart()
+        .moveToStart()
         .splitBlock()
         .moveForward()
-        .extendForward(extendForward)
-        .collapseToEnd()
+        .extend(extendForward)
+        .moveToEnd()
         .splitBlock()
-        .collapseToStartOfPreviousText()
+        .moveToStartOfPreviousText()
     } else if (hasTextBefore) {
       change
-        .collapseToStart()
+        .moveToStart()
         .splitBlock()
         .moveForward()
     } else {
       change
-        .collapseToEnd()
+        .moveToEnd()
         .splitBlock()
         .select(selection)
     }
@@ -76,24 +76,33 @@ export function toggleListItem(change, listItemName) {
 }
 
 export function expandToFocusedWord(change) {
-  const {focusText, focusOffset} = change.value
-  const charsBefore = focusText.characters.slice(0, focusOffset)
-  const charsAfter = focusText.characters.slice(focusOffset, -1)
-  const isEmpty = obj => obj.get('text').match(/\s/g)
-  const whiteSpaceBeforeIndex = charsBefore.reverse().findIndex(obj => isEmpty(obj))
+  const {focusText, selection} = change.value
+  const {focus} = selection
+  const focusOffset = focus.offset
+  const charsBefore = focusText.text.slice(0, focusOffset)
+  const charsAfter = focusText.text.slice(focusOffset, -1)
+  const isEmpty = str => str.match(/\s/g)
+  const whiteSpaceBeforeIndex = charsBefore
+    .split('')
+    .reverse()
+    .findIndex(str => isEmpty(str))
 
-  const newStartOffset = whiteSpaceBeforeIndex > -1 ? charsBefore.size - whiteSpaceBeforeIndex : -1
+  const newStartOffset =
+    whiteSpaceBeforeIndex > -1 ? charsBefore.length - whiteSpaceBeforeIndex : -1
 
-  const whiteSpaceAfterIndex = charsAfter.findIndex(obj => isEmpty(obj))
+  const whiteSpaceAfterIndex = charsAfter.split('').findIndex(obj => isEmpty(obj))
   const newEndOffset =
-    charsBefore.size + (whiteSpaceAfterIndex > -1 ? whiteSpaceAfterIndex : charsAfter.size + 1)
+    charsBefore.length + (whiteSpaceAfterIndex > -1 ? whiteSpaceAfterIndex : charsAfter.length + 1)
 
   // Not near any word, abort
-  if (newStartOffset === newEndOffset) {
+  if (newStartOffset === newEndOffset || (isNaN(newStartOffset) || isNaN(newEndOffset))) {
     return undefined
   }
   // Select and highlight current word
-  return change.moveOffsetsTo(newStartOffset, newEndOffset).focus()
+  return change
+    .moveAnchorTo(newStartOffset)
+    .moveFocusTo(newEndOffset)
+    .focus()
 }
 
 export function expandToNode(change, node) {
@@ -189,7 +198,7 @@ export function insertBlockObject(change, type) {
       value: {_type: type.name, _key: key}
     }
   })
-  change.insertBlock(block).collapseToEndOfBlock()
+  change.insertBlock(block).moveToEndOfBlock()
   return change
 }
 
@@ -221,6 +230,6 @@ export function insertInlineObject(change, objectType, blockContentType) {
   delete newData.value._oldKey
   change.replaceNodeByKey(focusBlock.key, newBlock.toJSON(VALUE_TO_JSON_OPTS))
   change.setNodeByKey(inlineObject.key, {data: newData})
-  change.collapseToEndOf(inlineObject)
+  change.moveToEndOfNode(inlineObject)
   return change
 }
